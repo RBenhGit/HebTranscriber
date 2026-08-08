@@ -4,9 +4,13 @@ import pytest
 
 from hebtranscriber.cleaning.cleaner import (
     CLEANUP_SYSTEM_PROMPT,
+    DEFAULT_MODEL,
+    RECOMMENDED_LARGER_MODEL,
     _chunk_words,
     clean,
     list_models,
+    prewarm,
+    recommend_model,
     transform,
 )
 
@@ -131,3 +135,24 @@ def test_list_models_returns_installed_model_names():
 
     assert result == ["qwen2.5:1.5b", "gemma2:latest"]
     mock_get.assert_called_once()
+
+
+def test_recommend_model_picks_default_on_tight_ram():
+    assert recommend_model(ram_available_gb=3.0) == DEFAULT_MODEL
+
+
+def test_recommend_model_picks_larger_model_with_enough_ram():
+    assert recommend_model(ram_available_gb=8.0) == RECOMMENDED_LARGER_MODEL
+
+
+def test_prewarm_sends_empty_messages_with_keep_alive():
+    with patch(
+        "hebtranscriber.cleaning.cleaner.requests.post",
+        return_value=_fake_chat_response(""),
+    ) as mock_post:
+        prewarm("qwen2.5:1.5b")
+
+    sent = mock_post.call_args.kwargs["json"]
+    assert sent["model"] == "qwen2.5:1.5b"
+    assert sent["messages"] == []
+    assert sent["keep_alive"] == "5m"

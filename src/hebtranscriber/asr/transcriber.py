@@ -29,6 +29,13 @@ def _load_model(model_name: str, compute_type: str) -> WhisperModel:
     return WhisperModel(model_name, device="cpu", compute_type=compute_type)
 
 
+def ensure_model_loaded(model_name: str = ASR_MODEL, compute_type: str = "int8") -> None:
+    """Trigger the model download/load now (idempotent — cached by
+    `_load_model`) instead of waiting for the first real `transcribe()`
+    call. Use for first-run setup and startup prewarming."""
+    _load_model(model_name, compute_type)
+
+
 def transcribe(
     audio: str | np.ndarray,
     model_name: str = ASR_MODEL,

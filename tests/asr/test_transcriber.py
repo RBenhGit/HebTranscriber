@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from hebtranscriber.asr.transcriber import Segment, _load_model, transcribe
+from hebtranscriber.asr.transcriber import Segment, _load_model, ensure_model_loaded, transcribe
 
 
 @pytest.fixture(autouse=True)
@@ -55,3 +55,11 @@ def test_transcribe_reports_progress_via_callback():
         transcribe("fake.wav", on_segment=seen.append)
 
     assert seen == [Segment(0.0, 2.0, "בדיקה")]
+
+
+def test_ensure_model_loaded_triggers_and_caches_model_load():
+    with patch("hebtranscriber.asr.transcriber.WhisperModel", return_value=Mock()) as mock_cls:
+        ensure_model_loaded("some-model", "int8")
+        ensure_model_loaded("some-model", "int8")
+
+    mock_cls.assert_called_once()  # second call hits the lru_cache, no reload

@@ -32,6 +32,17 @@ hotkey = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+# `flet build windows|macos|linux` reads this. Cross-compiling Flutter desktop
+# apps isn't supported, so the actual `flet build windows` run must happen on
+# a real Windows machine (or Windows CI runner) — see PROGRESS.md.
+[tool.flet.app]
+module = "gui"
+
+[tool.flet]
+product = "מתמלל"
+company = "HebTranscriber"
+copyright = "HebTranscriber"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

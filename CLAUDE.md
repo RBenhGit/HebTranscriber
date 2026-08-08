@@ -131,3 +131,12 @@ without a note in PROGRESS.md.
   row. If you ever add session update/delete, you must keep both tables in sync
   yourself; there are no triggers doing it for you (deliberately skipped — nothing
   currently updates or deletes a session).
+- `flet build windows`/`macos` cannot run on Linux — Flutter doesn't support
+  cross-compiling desktop targets. Packaging config (`[tool.flet]` in
+  `pyproject.toml`) can be written and reasoned about anywhere, but the actual build
+  needs to happen on that target OS (or matching CI).
+- Ollama's `keep_alive` (set explicitly to `"5m"` everywhere in `cleaning.py`, not
+  left to its own default) controls idle model unload; `cleaning.prewarm()` and
+  `asr.ensure_model_loaded()` are the "load once, stay warm" half — call both in a
+  background thread at startup, never synchronously (they can take a while on weak
+  hardware and must not delay the UI/CLI becoming usable).

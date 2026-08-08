@@ -16,10 +16,10 @@ import time
 
 import pyperclip
 
-from hebtranscriber.asr import transcribe
+from hebtranscriber.asr import ensure_model_loaded, transcribe
 from hebtranscriber.audio.capture import microphone_frames
 from hebtranscriber.audio.vad import segment_utterances
-from hebtranscriber.cleaning import DEFAULT_MODEL, clean
+from hebtranscriber.cleaning import DEFAULT_MODEL, clean, prewarm
 from hebtranscriber.storage import list_terms, save_session
 
 
@@ -38,6 +38,10 @@ def main() -> None:
 
     utterance_queue: queue.Queue = queue.Queue()
     threading.Thread(target=_capture_utterances, args=(utterance_queue,), daemon=True).start()
+    # Load both models now, in the background, so the first real utterance
+    # isn't slowed down by a cold model load (Stage 6: "load once, stay warm").
+    threading.Thread(target=ensure_model_loaded, daemon=True).start()
+    threading.Thread(target=prewarm, args=(args.llm_model,), daemon=True).start()
 
     print("Listening... speak, then pause. Ctrl+C to finish.", file=sys.stderr)
     vocabulary = list_terms()

@@ -14,8 +14,8 @@ import flet as ft
 import numpy as np
 import requests
 
-from hebtranscriber.asr import transcribe
-from hebtranscriber.cleaning import DEFAULT_MODEL, clean, list_models, transform
+from hebtranscriber.asr import ensure_model_loaded, transcribe
+from hebtranscriber.cleaning import DEFAULT_MODEL, clean, list_models, prewarm, transform
 from hebtranscriber.storage import list_terms, save_session
 
 TRANSFORM_LABELS = {
@@ -226,6 +226,11 @@ def main(page: ft.Page) -> None:
             page.update()
 
     _setup_global_hotkey()
+
+    # Load both models now, in the background, so the first real action
+    # isn't slowed down by a cold model load (Stage 6: "load once, stay warm").
+    threading.Thread(target=ensure_model_loaded, daemon=True).start()
+    threading.Thread(target=prewarm, args=(state["llm_model"],), daemon=True).start()
 
     page.add(
         ft.Row(

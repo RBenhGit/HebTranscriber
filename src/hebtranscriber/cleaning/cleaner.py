@@ -3,8 +3,10 @@
 import requests
 
 DEFAULT_MODEL = "qwen2.5:1.5b"
+RECOMMENDED_LARGER_MODEL = "gemma3:4b"
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
+KEEP_ALIVE = "5m"  # Stage 6: unload the model after 5 min idle, per the work plan
 
 CHUNK_WORD_LIMIT = 500
 CHUNK_OVERLAP_WORDS = 50
@@ -72,6 +74,7 @@ def _chat(system: str, user: str, model: str, temperature: float = 0.2) -> str:
             ],
             "stream": False,
             "options": {"temperature": temperature},
+            "keep_alive": KEEP_ALIVE,
         },
         timeout=120,
     )
@@ -127,3 +130,27 @@ def list_models() -> list[str]:
     response = requests.get(OLLAMA_TAGS_URL, timeout=10)
     response.raise_for_status()
     return [m["name"] for m in response.json()["models"]]
+
+
+def recommend_model(ram_available_gb: float) -> str:
+    """Pick a cleanup model sized to fit alongside the ASR model and VAD.
+
+    ~2.5GB covers Whisper turbo (~1.5-2GB) + Silero VAD (~0.5GB) per the
+    architecture doc's resource budget; the rest needs to hold the LLM.
+    RECOMMENDED_LARGER_MODEL (4B, needs ~2-4GB) is only offered once at
+    least that much room remains — otherwise fall back to DEFAULT_MODEL.
+    """
+    headroom_gb = ram_available_gb - 2.5
+    return RECOMMENDED_LARGER_MODEL if headroom_gb >= 4 else DEFAULT_MODEL
+
+
+def prewarm(model: str = DEFAULT_MODEL) -> None:
+    """Load `model` into Ollama's memory now (empty message list = no
+    generation), so the first real cleanup request isn't slowed down by a
+    cold model load. Call once at app startup."""
+    response = requests.post(
+        OLLAMA_URL,
+        json={"model": model, "messages": [], "keep_alive": KEEP_ALIVE},
+        timeout=120,
+    )
+    response.raise_for_status()

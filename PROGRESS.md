@@ -5,9 +5,11 @@ completing a stage, and note any half-finished work here before ending a session
 
 ## Status
 
-**Stages 0-5 implemented; Stage 0 has a known hardware caveat, and Stages 1/3/4 need
-hands-on verification this environment can't provide (no real audio, no display).
-Stage 5 is fully real-tested (SQLite, not mocked).**
+**Stages 0-6 implemented (of 7 — the whole roadmap); Stage 0 has a known hardware
+caveat, and Stages 1/3/4/6 need hands-on verification this environment can't provide
+(no real audio, no display, and Stage 6's actual installer needs a Windows machine).
+Stages 2 and 5 were tested live against real Ollama / real SQLite (not mocked) —
+Stage 2 surfaced real model-quality limits documented below; Stage 5 passed cleanly.**
 faster-whisper decodes audio via its own bundled PyAV libraries, so a
 system `ffmpeg` binary turned out not to be required for basic transcription — it's
 still needed for the Stage 1 `loudnorm` noise-normalization risk mitigation, and isn't
@@ -127,9 +129,37 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
       **Design note**: history is scoped to dictation sessions (`dictate.py`/GUI live
       recording) rather than one-off file transcriptions — "words per minute" only
       means something for live speech, not arbitrary pre-recorded files.
-- [ ] **Stage 6 — Packaging & release** (week 7): PyInstaller/Tauri bundle with
-      first-run model download, warm-model optimization, idle LLM unload after 5 min,
-      low-resource (8GB RAM, no GPU) testing, README + install/troubleshooting docs.
+- [~] **Stage 6 — Packaging & release** (week 7):
+      **Packaging config only, not an actual build**: `[tool.flet]` in `pyproject.toml`
+      points `flet build` at `gui.py` (its default is `main.py`). Cross-compiling
+      Flutter desktop apps isn't supported, and the app's target is Windows (per the
+      architecture doc's first line) while this environment is Linux — an actual
+      `flet build windows` run needs to happen on a real Windows machine or a
+      matching CI runner (e.g. GitHub Actions `windows-latest`), not here. Attempting
+      even a Linux build here would mean downloading the full Flutter SDK (1-2GB+)
+      for a build that wouldn't validate the platform that actually matters, so it
+      wasn't attempted.
+      **First-run model download**: `src/hebtranscriber/setup.py` — `ensure_asr_model()`
+      (triggers faster-whisper's own download-on-first-use) and `ensure_llm_model()`
+      (streams `ollama pull` progress events; no-ops quickly if already installed).
+      **Warm-model optimization**: `asr.ensure_model_loaded()` and
+      `cleaning.prewarm()` are fired in background threads at `dictate.py`/`gui.py`
+      startup, so the first real utterance/request isn't slowed by a cold load.
+      **Idle unload**: Ollama already unloads an idle model after 5 minutes by
+      default — made this explicit (`keep_alive="5m"` on every request) rather than
+      relying on an unstated default.
+      **Low-resource default adjustment**: `cleaning.recommend_model(ram_available_gb)`
+      — picks `gemma3:4b` only with ~6.5GB+ free (headroom for ASR+VAD too, per the
+      architecture doc's budget), else `qwen2.5:1.5b`. Pure function, unit-tested;
+      not yet wired into a "first-run hardware check" flow (nothing currently calls
+      `benchmark.hardware_info()` before choosing the default model automatically —
+      `recommend_model()` exists as a building block for that, not a finished flow).
+      **Docs**: install/troubleshooting section added to `README.md`, covering every
+      real issue this session actually hit (ffmpeg, PortAudio, clipboard, pynput/gcc,
+      Ollama OOM, the cleanup-model quirk, the cross-compile limitation).
+      **Not done**: an actual installer artifact (needs Windows), and the low-resource
+      *testing* half of Stage 6 (needs a real 8GB/no-GPU machine — this dev box is
+      below even that bar, so it's a different, not a representative, hardware point).
 
 ## Open decisions (from the architecture doc)
 
