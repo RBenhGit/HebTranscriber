@@ -1,0 +1,29 @@
+[project]
+name = "hebtranscriber"
+version = "0.1.0"
+description = "Local, offline-first Hebrew transcription and cleanup (Whisper + local LLM)"
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.0",
+    "requests>=2.31",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

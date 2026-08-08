@@ -1,17 +1,22 @@
-# Project: {{PROJECT_NAME}}
+# Project: HebTranscriber (מתמלל)
 
-<!-- Starter template from CodeFundation. Fill every {{...}}, delete what doesn't apply,
-     keep the whole file under 200 lines. Per-line test: "Would removing this cause
-     Claude to make mistakes?" If not, cut it. -->
+Local, fully offline Hebrew transcription desktop app, in the style of Google AI Edge
+Eloquent: mic or file audio → ASR → LLM-based cleanup (filler-word removal, punctuation,
+intent-based rewrite) → clipboard-ready text with transformations and history. No audio
+ever leaves the device, no cloud, no subscription.
+
+Full spec lives in `Docs/`:
+- `Docs/מסמך-ארכיטקטורה-מתמלל_1.md` — architecture (two-model pipeline, resource budget)
+- `Docs/תכנית-עבודה-פיתוח-מתמלל_1.md` — staged build plan (7 stages, see PROGRESS.md for status)
 
 ## Commands
 
-- Build: `{{BUILD_CMD}}`
-- Test (all): `{{TEST_CMD}}`
-- Test (single): `{{TEST_SINGLE_CMD}}`
-- Lint: `{{LINT_CMD}}`
-- Format: `{{FORMAT_CMD}}`
-- Run locally: `{{RUN_CMD}}`
+- Build: `pip install -e ".[dev]"`
+- Test (all): `pytest`
+- Test (single): `pytest tests/test_file.py::test_name`
+- Lint: `ruff check .`
+- Format: `ruff format .`
+- Run locally: see the current stage's entry point in PROGRESS.md (e.g. `python benchmark.py`, `python transcribe.py file.mp3`)
 
 ## Principles
 
@@ -24,12 +29,14 @@
 ### 1. Simplicity
 - Prefer the design a reader can hold in one read.
 - No abstraction until variation is real; no generalization before behaviors truly share a core.
-- No speculative flags, layers, or config. Optimize only against a measured budget.
+- No speculative flags, layers, or config. Don't add a stage's dependencies before that stage starts.
 
 ### 2. Modularity
-- One concern per module. Structure: domain directories containing vertical slices
-  (e.g. `{{DOMAIN}}/{{use-case}}/` holding handler, validation, and its tests together).
-- Depend on published interfaces only — never reach into another module's internals.
+- One concern per module. Structure: domain directories under `src/hebtranscriber/`
+  (`asr/`, `cleaning/`, `audio/`, `storage/`), each a vertical slice holding its handler,
+  validation, and tests together.
+- Depend on published interfaces only — e.g. the CLI calls `asr`'s public `transcribe()`,
+  never its internal chunking logic.
 - A change should touch one slice and its tests. If it can't, say so before implementing.
 
 ### 3. Surgical changes
@@ -40,13 +47,15 @@
 
 ## Verification policy
 
-- Every change ends with its check passing: run `{{TEST_CMD}}` (or the relevant single test)
+- Every change ends with its check passing: run `pytest` (or the relevant single test)
   and show the output. If you can't verify it, don't call it done.
 - Fix root causes. Never suppress an error, skip a test, or weaken an assertion to get green.
 - For bug fixes: write a failing test that reproduces the issue first, then fix it.
 
 ## Workflow
 
+- Follow `Docs/תכנית-עבודה-פיתוח-מתמלל_1.md` stage by stage; each stage ends in something
+  runnable. Don't start stage N+1 work before stage N's "קריטריון מעבר" (exit criterion) is met.
 - Non-trivial changes (multi-file, unfamiliar code, uncertain approach): explore and plan
   first; skip planning for one-line fixes.
 - For risky or multi-session work, start from a worktree on a new branch and confirm the
@@ -57,15 +66,32 @@
 
 ## Multi-session projects
 
-At the start of a session: read the git log and PROGRESS.md (if present) before making
-changes. Complete one feature at a time. Leave the code mergeable — no half-done work
+At the start of a session: read the git log and PROGRESS.md before making changes.
+Complete one stage/feature at a time. Leave the code mergeable — no half-done work
 without a note in PROGRESS.md.
 
 ## Repository etiquette
 
-- Branch naming: `{{BRANCH_CONVENTION}}`
-- {{OTHER_ETIQUETTE}}
+- Branch naming: `stage-N-<short-description>` (e.g. `stage-1-cli-transcription`),
+  matching the work plan's stages.
+- Large models (Whisper, Ollama weights) are downloaded at runtime — never commit them.
+- Audio/video test fixtures don't belong in git either (see `.gitignore`).
 
 ## Gotchas
 
-- {{NON_OBVIOUS_QUIRK_1}}
+- `ivrit-ai/whisper-large-v3-turbo-ct2` had language auto-detection weakened during
+  training — always pass `language="he"` explicitly to faster-whisper, never rely on
+  auto-detect. Its translation ability is weakened too; don't use it for translation.
+- Two separate models, not one multimodal model: faster-whisper for ASR, a local LLM
+  via Ollama (REST API on `localhost:11434`) for cleanup. Don't merge these stages —
+  see the architecture doc for why a single multimodal model was rejected.
+- The cleanup LLM must return only the cleaned text, with no preambles or explanations,
+  and must not invent content — keep temperature low (0.1–0.3) and tighten the prompt
+  if it "gets creative."
+- faster-whisper decodes audio via its own bundled PyAV libraries, so a system `ffmpeg`
+  binary is not required for basic transcription — only for the `loudnorm`
+  noise-normalization step (Stage 1 risk mitigation).
+- Never add a real (unmocked) `WhisperModel`-based test to the pytest suite: on
+  underpowered dev hardware a single transcription can take minutes, and the Stop hook
+  runs `pytest` after every turn. Mock `WhisperModel`/Ollama calls in tests; verify real
+  inference manually instead.
