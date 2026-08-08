@@ -8,6 +8,7 @@ cleanup, transformations, settings) must stay usable without them.
 """
 
 import threading
+import time
 
 import flet as ft
 import numpy as np
@@ -15,6 +16,7 @@ import requests
 
 from hebtranscriber.asr import transcribe
 from hebtranscriber.cleaning import DEFAULT_MODEL, clean, list_models, transform
+from hebtranscriber.storage import list_terms, save_session
 
 TRANSFORM_LABELS = {
     "keypoints": "נקודות עיקריות",
@@ -43,7 +45,9 @@ def main(page: ft.Page) -> None:
         "recording": False,
         "raw_text": "",
         "clean_text": "",
+        "raw_parts": [],
         "session_parts": [],
+        "session_start": 0.0,
         "llm_model": DEFAULT_MODEL,
         "vad_threshold": 0.5,
     }
@@ -78,6 +82,7 @@ def main(page: ft.Page) -> None:
                 page.update()
                 yield frame
 
+        vocabulary = list_terms()
         for utterance in segment_utterances(leveled_frames(), threshold=state["vad_threshold"]):
             if not state["recording"]:
                 break
@@ -86,8 +91,9 @@ def main(page: ft.Page) -> None:
                 continue
             state["raw_text"] = result.text
             _refresh_display()
-            cleaned = clean(result.text, model=state["llm_model"])
+            cleaned = clean(result.text, model=state["llm_model"], vocabulary=vocabulary)
             state["clean_text"] = cleaned
+            state["raw_parts"].append(result.text)
             state["session_parts"].append(cleaned)
             _refresh_display()
 
@@ -99,11 +105,17 @@ def main(page: ft.Page) -> None:
         if state["recording"]:
             record_button.text = "עצור הקלטה"
             status_text.value = "מקליט..."
+            state["raw_parts"] = []
+            state["session_parts"] = []
+            state["session_start"] = time.monotonic()
             threading.Thread(target=_run_dictation, daemon=True).start()
         else:
             record_button.text = "התחל הקלטה"
             full_text = " ".join(state["session_parts"])
             if full_text:
+                duration_s = time.monotonic() - state["session_start"]
+                save_session(" ".join(state["raw_parts"]), full_text, duration_s)
+
                 import pyperclip
 
                 try:
@@ -145,7 +157,9 @@ def main(page: ft.Page) -> None:
         def worker():
             result = transcribe(path)
             state["raw_text"] = result.text
-            state["clean_text"] = clean(result.text, model=state["llm_model"])
+            state["clean_text"] = clean(
+                result.text, model=state["llm_model"], vocabulary=list_terms()
+            )
             state["session_parts"] = [state["clean_text"]]
             status_text.value = "הושלם"
             _refresh_display()

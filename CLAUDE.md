@@ -125,3 +125,9 @@ without a note in PROGRESS.md.
   this version, and `ft.app()` is deprecated in favor of `ft.run(main)` (positional,
   not `target=`). Verify against the installed version before assuming newer Flet
   tutorial code applies as-is.
+- `storage/history.py`'s FTS5 table (`sessions_fts`) is a plain standalone FTS5 table,
+  not SQLite's "external content" mode — `save_session` inserts into it directly with
+  `rowid = sessions.id` (via `lastrowid`) so search results can join back to the full
+  row. If you ever add session update/delete, you must keep both tables in sync
+  yourself; there are no triggers doing it for you (deliberately skipped — nothing
+  currently updates or deletes a session).

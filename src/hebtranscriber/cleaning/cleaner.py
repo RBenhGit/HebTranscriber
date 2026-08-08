@@ -79,12 +79,28 @@ def _chat(system: str, user: str, model: str, temperature: float = 0.2) -> str:
     return response.json()["message"]["content"].strip()
 
 
-def clean(text: str, model: str = DEFAULT_MODEL) -> str:
-    """Remove filler words, merge self-corrections, and add punctuation."""
+def _system_prompt_with_vocabulary(vocabulary: list[str] | None) -> str:
+    if not vocabulary:
+        return CLEANUP_SYSTEM_PROMPT
+    terms = ", ".join(vocabulary)
+    return (
+        f"{CLEANUP_SYSTEM_PROMPT}\n\n"
+        f"תקן את האיות של המונחים הבאים אם הם מופיעים בטקסט, גם אם נשמעו "
+        f"מעט אחרת בתמלול הגולמי: {terms}"
+    )
+
+
+def clean(text: str, model: str = DEFAULT_MODEL, vocabulary: list[str] | None = None) -> str:
+    """Remove filler words, merge self-corrections, and add punctuation.
+
+    `vocabulary` is an optional list of names/terms (from the personal
+    dictionary) whose spelling should be corrected wherever they appear.
+    """
     words = text.split()
     if not words:
         return ""
 
+    system_prompt = _system_prompt_with_vocabulary(vocabulary)
     chunks = _chunk_words(words, CHUNK_WORD_LIMIT, CHUNK_OVERLAP_WORDS)
     cleaned_parts = []
     for context, target in chunks:
@@ -94,7 +110,7 @@ def clean(text: str, model: str = DEFAULT_MODEL) -> str:
             if context
             else f'הטקסט לניקוי:\n"""\n{target}\n"""'
         )
-        cleaned_parts.append(_chat(CLEANUP_SYSTEM_PROMPT, user, model, temperature=0.1))
+        cleaned_parts.append(_chat(system_prompt, user, model, temperature=0.1))
     return " ".join(cleaned_parts)
 
 

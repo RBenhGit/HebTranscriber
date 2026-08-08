@@ -2,7 +2,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from hebtranscriber.cleaning.cleaner import _chunk_words, clean, list_models, transform
+from hebtranscriber.cleaning.cleaner import (
+    CLEANUP_SYSTEM_PROMPT,
+    _chunk_words,
+    clean,
+    list_models,
+    transform,
+)
 
 
 def test_chunk_words_single_chunk_when_under_limit():
@@ -27,6 +33,29 @@ def test_chunk_words_splits_without_duplicating_words():
 
 def test_clean_returns_empty_string_for_empty_input():
     assert clean("") == ""
+
+
+def test_clean_injects_vocabulary_into_system_prompt():
+    with patch(
+        "hebtranscriber.cleaning.cleaner.requests.post",
+        return_value=_fake_chat_response("נקי"),
+    ) as mock_post:
+        clean("טקסט", vocabulary=["דוד כהן", "אקמה"])
+
+    system_message = mock_post.call_args.kwargs["json"]["messages"][0]["content"]
+    assert "דוד כהן" in system_message
+    assert "אקמה" in system_message
+
+
+def test_clean_without_vocabulary_uses_unmodified_prompt():
+    with patch(
+        "hebtranscriber.cleaning.cleaner.requests.post",
+        return_value=_fake_chat_response("נקי"),
+    ) as mock_post:
+        clean("טקסט")
+
+    system_message = mock_post.call_args.kwargs["json"]["messages"][0]["content"]
+    assert system_message == CLEANUP_SYSTEM_PROMPT
 
 
 def _fake_chat_response(content: str) -> Mock:

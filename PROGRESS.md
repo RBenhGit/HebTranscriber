@@ -5,8 +5,9 @@ completing a stage, and note any half-finished work here before ending a session
 
 ## Status
 
-**Stages 0-4 implemented; Stage 0 has a known hardware caveat, and Stages 1/3/4 need
-hands-on verification this environment can't provide (no real audio, no display).**
+**Stages 0-5 implemented; Stage 0 has a known hardware caveat, and Stages 1/3/4 need
+hands-on verification this environment can't provide (no real audio, no display).
+Stage 5 is fully real-tested (SQLite, not mocked).**
 faster-whisper decodes audio via its own bundled PyAV libraries, so a
 system `ffmpeg` binary turned out not to be required for basic transcription — it's
 still needed for the Stage 1 `loudnorm` noise-normalization risk mitigation, and isn't
@@ -110,9 +111,22 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
       canvas, so raw HTTP fetches show only a loader shell, not real UI content, and
       this environment still lacks a display, PortAudio, and a clipboard tool (see
       Stage 3). **Run `python gui.py` yourself** to see and test the actual UI.
-- [ ] **Stage 5 — History, search, personal vocabulary** (week 6): local SQLite session
-      table, FTS5 free-text search, personal term dictionary injected into the cleanup
-      prompt, session stats, export to TXT/SRT/Markdown.
+- [x] **Stage 5 — History, search, personal vocabulary** (week 6):
+      `src/hebtranscriber/storage/` — `history.py` (SQLite sessions table + FTS5 search,
+      one shared db file via `_db.py`), `vocabulary.py` (personal term list), `export.py`
+      (TXT/Markdown/SRT). `cleaning.clean()` takes an optional `vocabulary` list injected
+      into the system prompt ("fix the spelling of the following terms..."). Wired into
+      `dictate.py` (saves each session, passes vocabulary) and the GUI's dictation and
+      file-transcription paths (same). New CLIs: `history.py {recent,search,stats}`,
+      `vocab.py {add,remove,list}`; `transcribe.py` gained `--export {md,srt}`.
+      Unit-tested with real SQLite (via `tmp_path`, not mocked) — 14 tests covering
+      session save/search/stats, vocabulary CRUD, and TXT/MD/SRT formatting exactly.
+      **Verified live**: `vocab.py add/list/remove` and `history.py stats` run correctly
+      against the real on-disk db. `transcribe.py --export srt` verified end-to-end
+      against `Docs/Transcribe test.ogg`.
+      **Design note**: history is scoped to dictation sessions (`dictate.py`/GUI live
+      recording) rather than one-off file transcriptions — "words per minute" only
+      means something for live speech, not arbitrary pre-recorded files.
 - [ ] **Stage 6 — Packaging & release** (week 7): PyInstaller/Tauri bundle with
       first-run model download, warm-model optimization, idle LLM unload after 5 min,
       low-resource (8GB RAM, no GPU) testing, README + install/troubleshooting docs.
