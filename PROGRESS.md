@@ -5,8 +5,9 @@ completing a stage, and note any half-finished work here before ending a session
 
 ## Status
 
-**Stage 0 done (with a known hardware caveat); Stage 1 working on real audio, needs
-broader validation.** faster-whisper decodes audio via its own bundled PyAV libraries, so a
+**Stages 0-4 implemented; Stage 0 has a known hardware caveat, and Stages 1/3/4 need
+hands-on verification this environment can't provide (no real audio, no display).**
+faster-whisper decodes audio via its own bundled PyAV libraries, so a
 system `ffmpeg` binary turned out not to be required for basic transcription — it's
 still needed for the Stage 1 `loudnorm` noise-normalization risk mitigation, and isn't
 installed yet (`sudo apt-get install -y ffmpeg`, blocked here on missing sudo access).
@@ -84,9 +85,31 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
       by clean text in place; this MVP instead prints raw then clean sequentially
       per utterance (no in-place terminal overwrite). True live partial transcription
       and in-place replacement are more naturally a Stage 4 GUI concern.
-- [ ] **Stage 4 — GUI** (weeks 4–5): pick Tauri vs PyQt6/Flet; main screen (record
-      button, live transcript, level meter), raw/clean toggle, transformation buttons,
-      drag-and-drop file transcription, full RTL layout, global hotkey, settings.
+- [~] **Stage 4 — GUI** (weeks 4–5): **framework: Flet** (user's choice — pure Python,
+      no Rust/Node toolchain, unlike Tauri which needs one). `src/hebtranscriber/gui/app.py`
+      has: record button, live transcript, an RMS-based level meter, raw/clean switch,
+      4 transformation buttons, a settings dialog (mic device, cleanup model — populated
+      live from `cleaning.list_models()`, VAD threshold slider), full RTL (`page.rtl =
+      True`), and a global hotkey (Ctrl+Shift+D, via optional `pynput`).
+      **Substitution**: Flet 0.86.5 has no stable OS-level file-drop API (only in-app
+      `DragTarget`/`Draggable` between Flet controls) — used a native file-picker
+      dialog (`ft.FilePicker`) instead, which achieves the same goal (get a file path
+      without typing it) through a documented, working API.
+      **`pynput` is an optional dependency** (`pip install -e ".[hotkey]"`), not core:
+      its Linux backend needs to compile `evdev` against kernel headers (a C compiler),
+      which this machine (and plausibly others) lacks. The GUI already degrades
+      gracefully without it (status message, not a crash) — same pattern as the mic
+      import failing gracefully.
+      **Verified**: the whole app builds and serves successfully — smoke-tested by
+      running it in `ft.AppView.WEB_BROWSER` mode and confirming HTTP 200, which
+      exercises every code path at startup (live Ollama call, gracefully-empty mic
+      list, gracefully-failed hotkey setup) without a display or window system.
+      **Could not verify**: actual visual layout/RTL correctness, the record button's
+      live behavior, the native desktop window (`FLET_APP` view, the default), the
+      file picker's native dialog, and clipboard copy — Flutter web renders to a
+      canvas, so raw HTTP fetches show only a loader shell, not real UI content, and
+      this environment still lacks a display, PortAudio, and a clipboard tool (see
+      Stage 3). **Run `python gui.py` yourself** to see and test the actual UI.
 - [ ] **Stage 5 — History, search, personal vocabulary** (week 6): local SQLite session
       table, FTS5 free-text search, personal term dictionary injected into the cleanup
       prompt, session stats, export to TXT/SRT/Markdown.
@@ -96,7 +119,7 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
 
 ## Open decisions (from the architecture doc)
 
-- **UI framework**: Tauri vs PyQt6/Flet — decide at the start of Stage 4.
+- **UI framework**: ~~Tauri vs PyQt6/Flet~~ — decided: **Flet** (Stage 4).
 - **Final cleanup model**: Gemma 3 4B vs Qwen 2.5/3 (1.5–4B) vs DictaLM — decide from
   the Stage 2 A/B results.
 - **whisper.cpp vs faster-whisper**: reconsider in Stage 6 if a Python-dependency-free

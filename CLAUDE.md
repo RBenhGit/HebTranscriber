@@ -115,3 +115,13 @@ without a note in PROGRESS.md.
   utterance would be unusable. Tests that patch `WhisperModel` must clear this cache
   before and after (see the `_clear_model_cache` fixture in `tests/asr/`), or a
   passing test can spuriously reuse a mock cached by an earlier test.
+- Same import-time-crash pattern as `sounddevice` applies to `pynput` (used for the
+  GUI's global hotkey): it's an *optional* dependency (`pip install -e ".[hotkey]"`)
+  because its Linux backend needs to compile `evdev` against kernel headers. Both are
+  imported lazily inside the handler that needs them (`gui/app.py`), never at module
+  level, so the rest of the GUI stays usable without either installed.
+- Flet 0.86.5's dialog API is `page.overlay.append(dialog)` + toggling the dialog's
+  own `.open` boolean + `page.update()` — there is no `page.open()`/`page.close()` in
+  this version, and `ft.app()` is deprecated in favor of `ft.run(main)` (positional,
+  not `target=`). Verify against the installed version before assuming newer Flet
+  tutorial code applies as-is.

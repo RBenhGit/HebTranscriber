@@ -4,6 +4,7 @@ import requests
 
 DEFAULT_MODEL = "qwen2.5:1.5b"
 OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
 
 CHUNK_WORD_LIMIT = 500
 CHUNK_OVERLAP_WORDS = 50
@@ -103,3 +104,10 @@ def transform(text: str, kind: str, model: str = DEFAULT_MODEL) -> str:
         raise ValueError(f"Unknown transform {kind!r}, expected one of {list(TRANSFORM_PROMPTS)}")
     user = TRANSFORM_PROMPTS[kind].format(text=text)
     return _chat(TRANSFORM_SYSTEM_PROMPT, user, model)
+
+
+def list_models() -> list[str]:
+    """List models Ollama currently has installed, for settings UI."""
+    response = requests.get(OLLAMA_TAGS_URL, timeout=10)
+    response.raise_for_status()
+    return [m["name"] for m in response.json()["models"]]

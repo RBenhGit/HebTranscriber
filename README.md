@@ -29,21 +29,34 @@ plan is in [Docs/תכנית-עבודה-פיתוח-מתמלל_1.md](Docs/תכני
 
 ## Status
 
-Not started — see [PROGRESS.md](PROGRESS.md) for the current stage and what's next.
+Stages 0-4 (of 7) implemented — see [PROGRESS.md](PROGRESS.md) for what's verified
+versus what still needs hands-on testing on real hardware.
 
 ## Requirements
 
 - Python 3.11+
-- [ffmpeg](https://ffmpeg.org/) on `PATH`
 - [Ollama](https://ollama.com/) running locally
+- [ffmpeg](https://ffmpeg.org/) on `PATH` — only needed for noise-normalization, not
+  basic transcription (faster-whisper decodes audio itself)
+- `libportaudio2` (Debian/Ubuntu) — for microphone capture
+- A clipboard tool: `xclip`/`xsel` on X11, `wl-clipboard` on Wayland
 
 ## Setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-ollama pull gemma3:4b
+pip install -e ".[dev]"       # add ".[dev,hotkey]" for the GUI's global hotkey
+ollama pull qwen2.5:1.5b      # or gemma3:4b if your hardware handles it — see PROGRESS.md
+```
+
+## Usage
+
+```bash
+python benchmark.py file.mp3         # Stage 0: check ASR/LLM speed on your hardware
+python transcribe.py file.mp3 -o out.txt [--clean] [--transform keypoints]
+python dictate.py                    # Stage 3: live mic dictation, CLI
+python gui.py                        # Stage 4: desktop GUI
 ```
 
 ## Development

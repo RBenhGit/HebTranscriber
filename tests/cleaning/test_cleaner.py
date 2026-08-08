@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from hebtranscriber.cleaning.cleaner import _chunk_words, clean, transform
+from hebtranscriber.cleaning.cleaner import _chunk_words, clean, list_models, transform
 
 
 def test_chunk_words_single_chunk_when_under_limit():
@@ -86,3 +86,19 @@ def test_transform_sends_correct_prompt_for_kind():
     user_content = sent_messages[1]["content"]
     assert "טקסט לדוגמה" in user_content
     assert "נקודות עיקריות" in user_content
+
+
+def test_list_models_returns_installed_model_names():
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "models": [{"name": "qwen2.5:1.5b"}, {"name": "gemma2:latest"}]
+    }
+    fake_response.raise_for_status = Mock()
+
+    with patch(
+        "hebtranscriber.cleaning.cleaner.requests.get", return_value=fake_response
+    ) as mock_get:
+        result = list_models()
+
+    assert result == ["qwen2.5:1.5b", "gemma2:latest"]
+    mock_get.assert_called_once()

@@ -11,12 +11,21 @@ dependencies = [
     "sounddevice>=0.5",
     "silero-vad>=6.0",
     "pyperclip>=1.9",
+    "flet>=0.28",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
+]
+# Optional: global hotkey (Ctrl+Shift+D) support in the GUI. Not a core
+# dependency because pynput's Linux backend needs to compile `evdev` against
+# kernel headers (a C compiler + build-essential), which many systems lack;
+# the GUI already degrades gracefully (a status message, not a crash) when
+# pynput is missing.
+hotkey = [
+    "pynput>=1.7",
 ]
 
 [build-system]
