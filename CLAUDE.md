@@ -104,3 +104,14 @@ without a note in PROGRESS.md.
   has made `qwen2.5:1.5b` silently drop content and hallucinate a summary instead of
   cleaning it, which is worse than a cosmetic preamble. Verify against multiple real
   inputs, not just an absence of preambles, before tightening further.
+- `sounddevice` raises `OSError` at **import time** (not just when opening a stream)
+  if the system's PortAudio library is missing — so `audio/capture.py` (the mic
+  wrapper) must never be imported by `audio/__init__.py` or by anything that also
+  needs the VAD logic; `vad.py` has zero dependency on `capture.py` or `sounddevice`
+  for exactly this reason. Keep it that way so `segment_utterances` stays importable
+  and testable on machines without audio hardware.
+- `asr.transcribe()`'s loaded `WhisperModel` is `lru_cache`d by (model_name,
+  compute_type) — required for live dictation, where reloading a multi-GB model per
+  utterance would be unusable. Tests that patch `WhisperModel` must clear this cache
+  before and after (see the `_clear_model_cache` fixture in `tests/asr/`), or a
+  passing test can spuriously reuse a mock cached by an earlier test.

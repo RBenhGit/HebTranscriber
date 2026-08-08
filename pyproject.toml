@@ -7,6 +7,10 @@ dependencies = [
     "faster-whisper>=1.0",
     "requests>=2.31",
     "psutil>=5.9",
+    "numpy>=1.26",
+    "sounddevice>=0.5",
+    "silero-vad>=6.0",
+    "pyperclip>=1.9",
 ]
 
 [project.optional-dependencies]

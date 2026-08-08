@@ -1,6 +1,17 @@
 from unittest.mock import Mock, patch
 
-from hebtranscriber.asr.transcriber import Segment, transcribe
+import pytest
+
+from hebtranscriber.asr.transcriber import Segment, _load_model, transcribe
+
+
+@pytest.fixture(autouse=True)
+def _clear_model_cache():
+    # _load_model is lru_cache'd across calls (deliberately, for live dictation);
+    # clear it so each test's WhisperModel patch is actually exercised.
+    _load_model.cache_clear()
+    yield
+    _load_model.cache_clear()
 
 
 def _fake_raw_segment(start, end, text):

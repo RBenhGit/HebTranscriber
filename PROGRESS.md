@@ -49,17 +49,41 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
       cleaning and echo a hallucinated one-line summary* of the input. Reverted to the
       version that reliably preserves full, correct content with the cosmetic
       preamble/quotes, rather than a version that's clean-looking but sometimes drops
-      content. Content preservation und no invented facts is the harder, more
+      content. Content preservation and no invented facts is the harder, more
       important half of the Stage 2 exit criterion — treat the label/quotes as a
       presentation detail to strip once a properly-sized model is available, not
       something to keep prompt-engineering around on a 1.5B model.
       **This needs re-testing on real target hardware with `gemma3:4b`** (per the work
       plan's own A/B recommendation) before deciding the final cleanup model or
       investing in output-parsing workarounds.
-- [ ] **Stage 3 — Live dictation** (week 3): mic capture via sounddevice, Silero VAD
-      (0.7–1.0s silence = segment boundary), async processing queue, live terminal
-      display, `dictate.py`, clipboard copy via pyperclip. Exit criterion: under 3s
-      from speech-stop to clean text for a 30s segment.
+- [~] **Stage 3 — Live dictation** (week 3): `src/hebtranscriber/audio/vad.py`
+      (Silero VAD, 800ms silence = segment boundary, flushes any trailing buffered
+      speech at stream end) is real-tested — not mocked — against both synthetic
+      silence and the real test clip (correctly found ~21s of the ~22s clip is
+      speech, split into 2 utterances at a natural pause). `src/hebtranscriber/asr`
+      now caches the loaded Whisper model (`lru_cache`) and accepts in-memory
+      float32 arrays, not just file paths — required so live utterances don't reload
+      a multi-GB model each time. `dictate.py` wires mic → VAD → transcribe → clean →
+      clipboard with capture running in a background thread so recording never blocks
+      on the (slow, on this hardware) processing pipeline.
+      **Could not verify end-to-end**: this shell session has no audio/display
+      session at all (bare TTY, no X11/Wayland) — not just missing packages. Two
+      system libraries are also missing and blocked on `sudo`: `libportaudio2`
+      (`sounddevice` raises `OSError: PortAudio library not found` on **import**,
+      before even trying to open a stream) and a clipboard tool (no `xclip`/`xsel`/
+      `wl-copy` found; `pyperclip.copy()` will fail without one — check your desktop's
+      display server to pick the right one, e.g. `xclip` for X11, `wl-clipboard` for
+      Wayland). `src/hebtranscriber/audio/capture.py` (the sounddevice wrapper) is
+      therefore the one piece of Stage 3 with **no automated test coverage** — it's a
+      thin device adapter, deliberately kept separate from `vad.py` so importing the
+      testable VAD logic doesn't crash on machines without PortAudio.
+      **You'll need to run `dictate.py` yourself** once those system packages are
+      installed, to confirm actual mic latency and the <3s speech-stop-to-clean-text
+      exit criterion — that can't be measured from here.
+      Also: the docs describe raw text appearing *while speaking* and being replaced
+      by clean text in place; this MVP instead prints raw then clean sequentially
+      per utterance (no in-place terminal overwrite). True live partial transcription
+      and in-place replacement are more naturally a Stage 4 GUI concern.
 - [ ] **Stage 4 — GUI** (weeks 4–5): pick Tauri vs PyQt6/Flet; main screen (record
       button, live transcript, level meter), raw/clean toggle, transformation buttons,
       drag-and-drop file transcription, full RTL layout, global hotkey, settings.
