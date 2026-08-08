@@ -35,10 +35,27 @@ not the deployment target, so this is a documented risk, not a blocker — re-ru
       the "<10 material errors/min" exit criterion met — only one short, clean clip
       tested so far. No punctuation/filler-cleanup yet — that's Stage 2, not a Stage 1
       defect.
-- [ ] **Stage 2 — LLM cleanup layer** (week 2): `cleaner.py` (Ollama REST API), Hebrew
-      cleanup system prompt (strip filler words, merge self-corrections, add
-      punctuation, no invented content), raw/clean side-by-side mode, 4 transformations
-      (key points / formal / short / long), A/B test Gemma 3 4B vs Qwen 2.5 1.5B.
+- [~] **Stage 2 — LLM cleanup layer** (week 2): `src/hebtranscriber/cleaning/cleaner.py`
+      (Ollama `/api/chat`), word-chunking with context-only overlap (no duplicated
+      output), 4 transformations (keypoints/formal/short/long), `transcribe.py --clean`
+      and `--transform`. Unit-tested (mocked); live-tested against real transcript text.
+      **A/B testing blocked on this machine**: `gemma2:latest` (5.4GB) needs 6.4GB RAM,
+      this box has 5.8GB total — Ollama refuses to even load it. `gemma:2b` (1.7GB)
+      timed out past 120s. Only `qwen2.5:1.5b` runs at all here.
+      **Known qwen2.5:1.5b quirk**: consistently prepends a short label + wraps the
+      answer in quotes (e.g. `בלי תמלול: "..."`) despite an explicit "no preamble, no
+      quotes" rule; every attempt to prompt this away traded it for a worse failure —
+      switching prompt wording to be stricter caused the model to instead *stop
+      cleaning and echo a hallucinated one-line summary* of the input. Reverted to the
+      version that reliably preserves full, correct content with the cosmetic
+      preamble/quotes, rather than a version that's clean-looking but sometimes drops
+      content. Content preservation und no invented facts is the harder, more
+      important half of the Stage 2 exit criterion — treat the label/quotes as a
+      presentation detail to strip once a properly-sized model is available, not
+      something to keep prompt-engineering around on a 1.5B model.
+      **This needs re-testing on real target hardware with `gemma3:4b`** (per the work
+      plan's own A/B recommendation) before deciding the final cleanup model or
+      investing in output-parsing workarounds.
 - [ ] **Stage 3 — Live dictation** (week 3): mic capture via sounddevice, Silero VAD
       (0.7–1.0s silence = segment boundary), async processing queue, live terminal
       display, `dictate.py`, clipboard copy via pyperclip. Exit criterion: under 3s
